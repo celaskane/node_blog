@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const requireLogin = require('../middlewares/requireLogin');
+const cleanCache = require('../middlewares/clearCache');
 
 const Blog = mongoose.model('Blog');
 
@@ -14,25 +15,14 @@ module.exports = app => {
   });
 
   app.get('/api/blogs', requireLogin, async (req, res) => {
-    const redis = require('redis');
-    const redisUrl = 'redis://127.0.0.1:6379';
-    const client = redis.createClient(redisUrl);
-    const util = require('util');
-    client.get = util.promisify(client.get);
-
-    // Aferindo se há dados em cache no redis referente à essa query
-    const cachedBlogs = await client.get(req.user.id);
-
-    // Se sim, responde a requisição e return
-
-    // Se não, responde a requisição e atualiza o cache com os dados da query
-
-    const blogs = await Blog.find({ _user: req.user.id });
+    const blogs = await Blog
+      .find({ _user: req.user.id })
+      .cache({ key: req.user.id });
 
     res.send(blogs);
   });
 
-  app.post('/api/blogs', requireLogin, async (req, res) => {
+  app.post('/api/blogs', requireLogin, cleanCache, async (req, res) => {
     const { title, content } = req.body;
 
     const blog = new Blog({
